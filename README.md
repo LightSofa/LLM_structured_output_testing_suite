@@ -46,7 +46,16 @@ jsonMode:
 
 只覆盖 `temperature / maxTokens / reasoningEffort / stop` —— 这四项是 `LlmCallConfig` 的全集；`top_p`、`seed` 之类只能走 fetch 层注入。
 
-**空白预设**：`id: blank`、名称「空白」、`order: 90`。persona 里写死了 JSON 契约（`status / summary / data / errors / next_actions`），并把宿主工具全部掩掉（`denyExtra` 用于点名 Agent Teams 那批按 agent 作用域注册的工具；在没有装 Agent Teams 的 profile 里会记录 `refused`，不影响其它工具）。
+## 两个预设（切换输出模式）
+
+| 预设 | id | order | 输出 | persona |
+|---|---|---|---|---|
+| 空白 | `blank` | 90 | 普通文本，不注入 `response_format` | 无 |
+| JSON输出 | `json` | 91 | 强制 JSON，注入 `response_format` / `text.format` | `DSH_JSON_MODE` + 契约 |
+
+两者的共同点：都挂 `preset.js` 把宿主工具掩掉（`denyExtra` 用于点名 Agent Teams 那批按 agent 作用域注册的工具；没装 Agent Teams 的 profile 会记录 `refused`，不影响其它工具）。
+
+所以**切换输出模式 = 换预设开会话**：选「JSON输出」走强制 JSON，选「空白」走普通文本。系统提示词里出现 `DSH_JSON_MODE` 才会注入，因此「空白」天然不会触发。
 
 ## 日志
 

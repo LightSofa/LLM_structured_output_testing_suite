@@ -1,13 +1,14 @@
 # LLM_structured_output_testing_suite
 #
-# 一个 bundle 两半身：
+# 一个 bundle 两半身 + 两个预设：
 #   · 宿主行 structured-output-suite  → JSON 模式注入 + /params 采样参数覆盖
-#   · 预设行 preset-blank             → 「空白」预设：JSON 契约 + 工具清空
+#   · 预设「空白」  (blank, order 90) → 普通文本输出，不暴露宿主工具
+#   · 预设「JSON输出」(json,  order 91) → 强制 JSON 输出，不暴露宿主工具
 #
 # 用法：
 #   /params temperature=0.3 max_tokens=4096   # 设置本会话采样参数
 #   /params reset                             # 清空
-#   DSH_JSON_MODE                             # 写进系统提示词才会触发 response_format 注入
+#   选「JSON输出」预设的会话，系统提示词里带 DSH_JSON_MODE，插件才会注入 response_format
 - insert:
     - id: structured-output-suite
       name: 'LLM_structured_output_testing_suite'
@@ -36,13 +37,43 @@
           keepFiles: 1
           prefix: structured-output
 
+    # ---------------- 预设一：空白（普通输出） ----------------
     - id: preset-blank
       name: '@deepseek-ai/dsh-agent-preset'
       config:
         id: blank
         name: 空白
-        description: 空白预设：只带 JSON 输出契约，不暴露宿主工具。
+        description: 空白预设：普通文本输出，不暴露宿主工具。
         order: 90
+        plugins:
+          - id: no-host-tools
+            name: 'LLM_structured_output_testing_suite/preset'
+            config:
+              allow: []
+              # 宿主按 agent 作用域注册的工具（Agent Teams 控制面）不在全局视图里，需要点名。
+              denyExtra:
+                - spawn_teammate
+                - list_agents
+                - send_message
+                - interrupt_agent
+                - wait_agent
+                - team_task_create
+                - team_task_get
+                - team_task_list
+                - team_task_update
+              logFile: C:\Users\zf\.dsh\plugins\LLM_structured_output_testing_suite\logs\restrict.log
+              maxBytes: 1048576
+              keepFiles: 1
+              verbose: false
+
+    # ---------------- 预设二：JSON输出（强制 JSON） ----------------
+    - id: preset-json
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: json
+        name: JSON输出
+        description: JSON 输出预设：强制结构化输出，不暴露宿主工具。
+        order: 91
         plugins:
           - id: persona
             name: '@deepseek-ai/dsh-persona'
@@ -76,7 +107,6 @@
             name: 'LLM_structured_output_testing_suite/preset'
             config:
               allow: []
-              # 宿主按 agent 作用域注册的工具（Agent Teams 控制面）不在全局视图里，需要点名。
               denyExtra:
                 - spawn_teammate
                 - list_agents
