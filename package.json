@@ -1,0 +1,21 @@
+{
+  "name": "LLM_structured_output_testing_suite",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "DSH 结构化输出测试套件：JSON 模式注入 + 请求参数覆盖 + 空白预设（JSON 契约 + 工具清空）",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./preset": "./preset.js",
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

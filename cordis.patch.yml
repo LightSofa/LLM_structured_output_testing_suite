@@ -1,0 +1,93 @@
+# LLM_structured_output_testing_suite
+#
+# 一个 bundle 两半身：
+#   · 宿主行 structured-output-suite  → JSON 模式注入 + /params 采样参数覆盖
+#   · 预设行 preset-blank             → 「空白」预设：JSON 契约 + 工具清空
+#
+# 用法：
+#   /params temperature=0.3 max_tokens=4096   # 设置本会话采样参数
+#   /params reset                             # 清空
+#   DSH_JSON_MODE                             # 写进系统提示词才会触发 response_format 注入
+- insert:
+    - id: structured-output-suite
+      name: 'LLM_structured_output_testing_suite'
+      config:
+        jsonMode:
+          enabled: true
+          marker: DSH_JSON_MODE
+          # system = 只有系统提示词里出现标记才注入（会话正文/工具输出不算）；any = 任何文本都算
+          markerScope: system
+          dryRun: false
+          matchURLs: []
+          paths:
+            - /chat/completions
+            - /responses
+          format: json_object
+          requireTools: false
+          logToolNames: true
+        params:
+          enabled: true
+          # 所有会话的兜底覆盖（留空 = 只按 /params 生效）
+          defaults: {}
+          persistFile: C:\Users\zf\.dsh\plugins\LLM_structured_output_testing_suite\logs\params.json
+        log:
+          logFile: C:\Users\zf\.dsh\plugins\LLM_structured_output_testing_suite\logs\suite.log
+          maxBytes: 1048576
+          keepFiles: 1
+          prefix: structured-output
+
+    - id: preset-blank
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: blank
+        name: 空白
+        description: 空白预设：只带 JSON 输出契约，不暴露宿主工具。
+        order: 90
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              prefix: |
+                输出契约：DSH_JSON_MODE
+
+                你的每一次回复都必须是且仅是一个 JSON 文档，除此之外不输出任何内容。
+
+                格式规则：
+                - 顶层是一个 JSON 对象；不套 Markdown 代码围栏，不加解释文字，JSON 前后不留任何字符。
+                - 合法 JSON：双引号、无注释、无 NaN/Infinity、无尾随逗号。
+                - 字段名与类型必须严格匹配下面的 schema；未列出的字段不要输出。
+                - 信息不足或无法完成时仍然只回 JSON：status 置为 error，在 errors 里写缺口，不要改用自然语言解释。
+
+                schema：
+                {
+                  "status": "ok" | "error",
+                  "summary": "一句话说明本次结果",
+                  "data": {},
+                  "errors": [],
+                  "next_actions": []
+                }
+
+                示例：
+                {"status":"ok","summary":"已完成","data":{},"errors":[],"next_actions":[]}
+
+                业务 schema（替换 data 的内容，其余字段保持不变）：
+                data: { "items": [ { "id": "string", "title": "string" } ] }
+          - id: no-host-tools
+            name: 'LLM_structured_output_testing_suite/preset'
+            config:
+              allow: []
+              # 宿主按 agent 作用域注册的工具（Agent Teams 控制面）不在全局视图里，需要点名。
+              denyExtra:
+                - spawn_teammate
+                - list_agents
+                - send_message
+                - interrupt_agent
+                - wait_agent
+                - team_task_create
+                - team_task_get
+                - team_task_list
+                - team_task_update
+              logFile: C:\Users\zf\.dsh\plugins\LLM_structured_output_testing_suite\logs\restrict.log
+              maxBytes: 1048576
+              keepFiles: 1
+              verbose: false
